@@ -4,4 +4,5 @@ textarea{width:100%;padding:12px;border-radius:6px;border:1px solid #d0d7de;back
 .controls{margin-top:8px}
 button{background:#10b981;color:white;padding:8px 12px;border-radius:6px;border:0}
 .result{margin-top:16px;background:#f8fafc;padding:12px;border-radius:6px;border:1px solid #e6edf3}
+.result pre{white-space:pre-wrap;word-wrap:break-word;overflow-wrap:break-word;font-family:inherit;margin:0}
 .error{color:#b91c1c}
