@@ -114,12 +114,20 @@ app.post('/api/restructure-questions', async (req, res) => {
 
   try {
     const prompt = `Resume:\n${resume}\n\nSuggestions for improvement:\n${suggestions.join('\n')}`
-    const systemMsg = 'Based on the resume and suggestions, write 3-6 short, specific questions to ask the candidate to gather the missing details needed to apply each suggestion (e.g. ask for a specific metric, a specific technology used, a specific measurable outcome). Return ONLY a JSON object: { "questions": [{ "id": "q1", "question": "..." }] }.'
+    const systemMsg = 'Based on the resume and suggestions, write 3-6 short, specific questions to ask the candidate to gather the missing details needed to apply each suggestion (e.g. ask for a specific metric, a specific technology used, a specific measurable outcome). Return ONLY a JSON object: { "questions": [{ "id": "q1", "title": "2-4 word category label, e.g. \'API Performance\'", "question": "the actual question, one sentence" }] }.'
     const resp = await callModel(prompt, systemMsg)
     const raw = resp.choices?.[0]?.message?.content || '{}'
     let parsed
-    try { parsed = JSON.parse(raw) } catch { parsed = { questions: [] } }
-    res.json({ questions: Array.isArray(parsed.questions) ? parsed.questions : [] })
+    try {
+      const jsonMatch = raw.match(/\{[\s\S]*\}/)
+      parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw)
+    } catch { parsed = { questions: [] } }
+    const questions = (Array.isArray(parsed.questions) ? parsed.questions : []).map((q, i) => ({
+      id: q.id || `q${i + 1}`,
+      title: stripMarkdown(q.title || `Question ${i + 1}`),
+      question: stripMarkdown(q.question || '')
+    }))
+    res.json({ questions })
   } catch (e) {
     console.error('groq error', e)
     res.status(500).json({ error: 'LLM error' })

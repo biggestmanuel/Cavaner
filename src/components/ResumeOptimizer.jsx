@@ -24,6 +24,7 @@ export default function ResumeOptimizer() {
   const [view, setView] = useState('form') // form | resume | suggestions | qa
   const [questions, setQuestions] = useState([])
   const [answers, setAnswers] = useState({})
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [restructuring, setRestructuring] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
 
@@ -80,6 +81,7 @@ export default function ResumeOptimizer() {
       })
       setQuestions(j.questions || [])
       setAnswers({})
+      setCurrentQuestionIndex(0)
       setView('qa')
     } catch (e) {
       setError(e.message)
@@ -201,28 +203,58 @@ export default function ResumeOptimizer() {
         </div>
       )}
 
-      {view === 'qa' && (
+      {view === 'qa' && questions.length > 0 && (
         <div className="result">
-          <section>
-            <h3 className="suggestions-heading">A Few Details</h3>
-            <p className="qa-intro">Answer what you can — these fill in the gaps the suggestions pointed out.</p>
-            {questions.map(q => (
-              <div key={q.id} className="qa-field">
-                <label className="field-label">{q.question}</label>
+          <div className="qa-header">
+            <button className="qa-exit" onClick={() => setView('suggestions')} disabled={restructuring}>‹ Suggestions</button>
+            <span className="qa-progress">
+              {Object.values(answers).filter(a => a && a.trim()).length} of {questions.length} answered
+            </span>
+          </div>
+          <p className="qa-intro">Answer what you can — you don't need to answer everything.</p>
+
+          {(() => {
+            const q = questions[currentQuestionIndex]
+            const isLast = currentQuestionIndex === questions.length - 1
+            return (
+              <div className="qa-card">
+                <div className="qa-card-title">{currentQuestionIndex + 1} — {q.title}</div>
+                <p className="qa-card-question">{q.question}</p>
                 <textarea
-                  rows={2}
+                  rows={3}
+                  placeholder="Your answer…"
                   value={answers[q.question] || ''}
                   onChange={e => setAnswers(a => ({ ...a, [q.question]: e.target.value }))}
+                  autoFocus
                 />
+                <div className="qa-nav-row">
+                  <button
+                    className="btn-secondary"
+                    onClick={() => setCurrentQuestionIndex(i => Math.max(0, i - 1))}
+                    disabled={currentQuestionIndex === 0 || restructuring}
+                  >
+                    Back
+                  </button>
+                  <div className="qa-nav-right">
+                    <button
+                      className="btn-secondary"
+                      onClick={() => (isLast ? submitAnswers() : setCurrentQuestionIndex(i => i + 1))}
+                      disabled={restructuring}
+                    >
+                      Skip
+                    </button>
+                    <button
+                      className="btn-primary"
+                      onClick={() => (isLast ? submitAnswers() : setCurrentQuestionIndex(i => i + 1))}
+                      disabled={restructuring}
+                    >
+                      {restructuring ? 'Rewriting…' : isLast ? 'Finish' : 'Continue →'}
+                    </button>
+                  </div>
+                </div>
               </div>
-            ))}
-          </section>
-          <div className="stage-actions">
-            <button className="btn-secondary" onClick={() => setView('suggestions')} disabled={restructuring}>Back</button>
-            <button className="btn-primary" onClick={submitAnswers} disabled={restructuring}>
-              {restructuring ? 'Rewriting…' : 'Done'}
-            </button>
-          </div>
+            )
+          })()}
         </div>
       )}
 

@@ -207,8 +207,63 @@ button:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
 .qa-intro { color: var(--text-muted); font-size: 13px; margin: 0 0 14px; }
 
-.qa-field { margin-bottom: 14px; }
-.qa-field textarea { width: 100%; }
+.qa-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.qa-exit {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 4px 0;
+  cursor: pointer;
+  font-size: 13px;
+}
+.qa-exit:hover:not(:disabled) { color: var(--orange); }
+
+.qa-progress {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--orange-2);
+  letter-spacing: 0.02em;
+}
+
+.qa-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  margin-top: 6px;
+}
+
+.qa-card-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pink);
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+
+.qa-card-question {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.qa-nav-row {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.qa-nav-right { display: flex; gap: 8px; }
 
 .modal-overlay {
   position: fixed;
