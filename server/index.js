@@ -17,6 +17,48 @@ if (GROQ_KEY) {
   }
 }
 
+function stripMarkdown(text) {
+  if (!text) return text
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/^[*+]\s+/gm, '- ')
+    .replace(/^\t+\+\s+/gm, '  - ')
+    .trim()
+}
+
+// The model doesn't always honor response_format json_object — this pulls
+// { optimized, suggestions } out of a normal prose/markdown reply as a fallback.
+function extractOptimizeResult(raw) {
+  const jsonMatch = raw.match(/\{[\s\S]*\}/)
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0])
+      if (parsed.optimized) {
+        return {
+          optimized: stripMarkdown(parsed.optimized),
+          suggestions: (Array.isArray(parsed.suggestions) ? parsed.suggestions : []).map(stripMarkdown)
+        }
+      }
+    } catch (e) {}
+  }
+
+  const splitRegex = /\n+(?:\*\*)?(?:concise |additional |here are (?:some )?)?suggestions?(?:\*\*)?:?\s*\n/i
+  const parts = raw.split(splitRegex)
+  let resumePart = parts[0] || raw
+  const suggestionsPart = parts.length > 1 ? parts.slice(1).join('\n') : ''
+
+  resumePart = resumePart.replace(/^.*here'?s (an|the) optimized.*\n+/i, '')
+
+  const suggestions = suggestionsPart
+    .split(/\n(?=\d+\.\s)/)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(s => stripMarkdown(s.replace(/^\d+\.\s*/, '')))
+
+  return { optimized: stripMarkdown(resumePart.trim()), suggestions }
+}
+
 async function callModel(prompt, systemMsg) {
   async function attempt(model) {
     return groqClient.chat.completions.create({
@@ -46,15 +88,11 @@ app.post('/api/optimize', async (req, res) => {
   if (groqClient) {
     try {
       const prompt = `Improve the resume below to better match this job description.\n\nJob description:\n${job}\n\nResume:\n${resume}`
-      const systemMsg = 'You are an expert resume editor. Return ONLY a JSON object with exactly these keys: "optimized" (the improved resume as plain text, no markdown formatting), "suggestions" (an array of short plain-text suggestion strings, no markdown formatting, no asterisks).'
+      const systemMsg = 'You are an expert resume editor. Respond with ONLY a single valid JSON object — no preamble, no explanation, no markdown, nothing before or after it. The object must have exactly these two keys: "optimized" (the improved resume as plain text, no markdown formatting, no asterisks) and "suggestions" (an array of short plain-text suggestion strings, no markdown formatting, no asterisks). Example shape: {"optimized": "...", "suggestions": ["...", "..."]}'
       const resp = await callModel(prompt, systemMsg)
       const raw = resp.choices?.[0]?.message?.content || '{}'
-      let parsed
-      try { parsed = JSON.parse(raw) } catch { parsed = { optimized: raw, suggestions: [] } }
-      return res.json({
-        optimized: parsed.optimized || '',
-        suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : []
-      })
+      const { optimized, suggestions } = extractOptimizeResult(raw)
+      return res.json({ optimized, suggestions })
     } catch (e) {
       console.error('groq error', e)
       return res.status(500).json({ error: 'LLM error' })
@@ -102,7 +140,7 @@ app.post('/api/restructure', async (req, res) => {
     const raw = resp.choices?.[0]?.message?.content || '{}'
     let parsed
     try { parsed = JSON.parse(raw) } catch { parsed = { optimized: raw } }
-    res.json({ optimized: parsed.optimized || '' })
+    res.json({ optimized: stripMarkdown(parsed.optimized || '') })
   } catch (e) {
     console.error('groq error', e)
     res.status(500).json({ error: 'LLM error' })
