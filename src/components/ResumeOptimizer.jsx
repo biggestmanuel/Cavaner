@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import html2pdf from 'html2pdf.js'
 import { Document, Packer, Paragraph } from 'docx'
 import { saveAs } from 'file-saver'
@@ -27,6 +27,7 @@ export default function ResumeOptimizer() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [restructuring, setRestructuring] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
+  const requestIdRef = useRef(0)
 
   async function postJSON(path, body) {
     const res = await fetch(`${API}${path}`, {
@@ -47,17 +48,20 @@ export default function ResumeOptimizer() {
 
   async function submit() {
     if (!resume.trim()) return
+    const myRequestId = ++requestIdRef.current
     setLoading(true)
     setError(null)
     setResult(null)
     try {
       const j = await postJSON('/api/optimize', { resume, job })
+      if (myRequestId !== requestIdRef.current) return // a newer request superseded this one
       setResult(j)
       setView('resume')
     } catch (e) {
+      if (myRequestId !== requestIdRef.current) return
       setError(e.message)
     } finally {
-      setLoading(false)
+      if (myRequestId === requestIdRef.current) setLoading(false)
     }
   }
 
@@ -72,6 +76,7 @@ export default function ResumeOptimizer() {
   }
 
   async function startRestructure() {
+    const myRequestId = ++requestIdRef.current
     setRestructuring(true)
     setError(null)
     try {
@@ -79,18 +84,21 @@ export default function ResumeOptimizer() {
         resume: result.optimized,
         suggestions: result.suggestions || []
       })
+      if (myRequestId !== requestIdRef.current) return
       setQuestions(j.questions || [])
       setAnswers({})
       setCurrentQuestionIndex(0)
       setView('qa')
     } catch (e) {
+      if (myRequestId !== requestIdRef.current) return
       setError(e.message)
     } finally {
-      setRestructuring(false)
+      if (myRequestId === requestIdRef.current) setRestructuring(false)
     }
   }
 
   async function submitAnswers() {
+    const myRequestId = ++requestIdRef.current
     setRestructuring(true)
     setError(null)
     try {
@@ -99,17 +107,20 @@ export default function ResumeOptimizer() {
         suggestions: result.suggestions || [],
         answers
       })
+      if (myRequestId !== requestIdRef.current) return
       // No suggestions this time around — that's intentional, one restructure pass only.
       setResult({ optimized: j.optimized, suggestions: [] })
       setView('resume')
     } catch (e) {
+      if (myRequestId !== requestIdRef.current) return
       setError(e.message)
     } finally {
-      setRestructuring(false)
+      if (myRequestId === requestIdRef.current) setRestructuring(false)
     }
   }
 
   function exportHtml() {
+    if (!result?.optimized?.trim()) return
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>Resume</title>
       <style>body{font-family:Arial,sans-serif;white-space:pre-wrap;max-width:700px;margin:40px auto;line-height:1.6;color:#1a1a1a}</style>
       </head><body>${result.optimized.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br/>')}</body></html>`
@@ -124,6 +135,7 @@ export default function ResumeOptimizer() {
   }
 
   function exportPdf() {
+    if (!result?.optimized?.trim()) return
     const el = document.createElement('div')
     el.style.whiteSpace = 'pre-wrap'
     el.style.fontFamily = 'Arial, sans-serif'
@@ -136,6 +148,7 @@ export default function ResumeOptimizer() {
   }
 
   async function exportDocx() {
+    if (!result?.optimized?.trim()) return
     const doc = new Document({
       sections: [{
         children: result.optimized.split('\n').map(line => new Paragraph(line))
@@ -168,7 +181,7 @@ export default function ResumeOptimizer() {
 
       {error && <div className="result"><div className="error">{error}</div></div>}
 
-      {result && view === 'resume' && (
+      {result && view === 'resume' && result.optimized && result.optimized.trim() && (
         <div className="result">
           <section>
             <h3>Optimized Resume</h3>
