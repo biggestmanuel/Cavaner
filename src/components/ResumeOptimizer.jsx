@@ -16,7 +16,16 @@ export default function ResumeOptimizer() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resume, job })
       })
-      if (!res.ok) throw new Error('Server error')
+      if (!res.ok) {
+        let message = `Server error (${res.status})`
+        try {
+          const errBody = await res.json()
+          if (errBody?.error) message = errBody.error
+        } catch (parseErr) {
+          // response wasn't JSON — keep the status-based message
+        }
+        throw new Error(message)
+      }
       const j = await res.json()
       setResult(j)
     } catch (e) {
