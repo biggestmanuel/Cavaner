@@ -148,4 +148,4 @@ app.post('/api/restructure', async (req, res) => {
 })
 
 const PORT = process.env.PORT || 3002
-app.listen(PORT, () => console.log('Cavaner server listening on', PORT))
+app.listen(PORT, () => console.log('Cavaner server listening on', PORT, '— auto-deploy test v1'))
