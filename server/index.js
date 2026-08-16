@@ -24,15 +24,28 @@ app.post('/api/optimize', async (req, res) => {
   if (groqClient) {
     try {
       const prompt = `Improve the resume below to better match this job description. Provide an optimized resume and a short list of suggestions.\n\nJob description:\n${job}\n\nResume:\n${resume}`
-      const resp = await groqClient.chat.completions.create({
-        model: 'llama-3.1-8b-instant',
-        messages: [
-          { role: 'system', content: 'You are an expert resume editor. Produce an optimized resume and concise suggestions.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.2,
-        max_tokens: 800
-      })
+      const systemMsg = 'You are an expert resume editor. Produce an optimized resume and concise suggestions.'
+
+      async function callModel(model) {
+        return groqClient.chat.completions.create({
+          model,
+          messages: [
+            { role: 'system', content: systemMsg },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.2,
+          max_tokens: 800
+        })
+      }
+
+      let resp
+      try {
+        resp = await callModel('llama-3.3-70b-versatile')
+      } catch (primaryErr) {
+        console.warn('llama-3.3-70b-versatile failed, falling back to llama-3.1-8b-instant', primaryErr.message)
+        resp = await callModel('llama-3.1-8b-instant')
+      }
+
       const answer = resp.choices?.[0]?.message?.content || ''
       return res.json({ optimized: answer, suggestions: [] })
     } catch (e) {
